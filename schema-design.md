@@ -249,3 +249,126 @@ CREATE TABLE payments (
 ```
 
 ## MongoDB Collection Design
+
+MongoDB complements the MySQL schema by storing data that does not fit well into rigid tables: free-form notes, nested structures, optional fields that vary from record to record, and metadata that evolves over time. For this system, the primary collection is **`prescriptions`** — the structured "who/when" of a visit lives in MySQL (`appointments`), while the flexible "what was prescribed and why" lives in MongoDB.
+
+### Why prescriptions fit MongoDB
+
+- A prescription can have **one or many medications**, each with its own dosage, schedule, and instructions — an array of embedded documents models this naturally, where MySQL would need extra join tables.
+- Doctors attach **free-form notes, tags, and file attachments** (e.g., a scanned lab result) that vary per prescription.
+- Pharmacies and refill rules differ by medication and region, so the shape of the data is **not uniform** across records.
+
+### Design decisions
+
+- **Reference IDs, not full objects.** The document stores `patientId`, `doctorId`, and `appointmentId` referencing the MySQL rows — never a full embedded copy of the patient. If the full patient object were embedded, every change to the patient's phone or address would have to be propagated into every prescription document (or worse, left stale). The one exception: we **denormalize a small snapshot** (`patientName`, `doctorName`) purely for display and audit purposes, because a prescription is a point-in-time record — the name *as it was when prescribed* is actually the correct value to keep, even if the patient later changes their name.
+- **Arrays and embedded documents where they make sense.** `medications` is an array of embedded documents (a prescription is meaningless without them, and they are never queried independently). `refills` is an embedded history array. `attachments` holds file metadata, with the binary itself in object storage — not in the document.
+- **`tags` and `metadata`** support search/filtering (`tags`) and operational context (`metadata`: which pharmacy system it was sent to, the client app version, etc.) without schema changes.
+- **Schema evolution.** Documents carry a `schemaVersion` field. Because MongoDB does not enforce a uniform schema, new fields (e.g., adding `insurance` next quarter) can be introduced without migrating old documents — readers treat missing fields as "not present" and the application upgrades documents lazily on write. This is the key advantage over the MySQL side, where the same change would require an `ALTER TABLE`.
+
+### Example document: `prescriptions`
+
+```json
+{
+  "_id": { "$oid": "665f1c2ab9e8a3d4f0a12345" },
+  "schemaVersion": 2,
+
+  "appointmentId": 51,
+  "patientId": 17,
+  "patientName": "Maria Petrova",
+  "doctorId": 4,
+  "doctorName": "Dr. Ivan Georgiev",
+
+  "issuedAt": { "$date": "2026-06-11T14:30:00Z" },
+  "validUntil": { "$date": "2026-09-11T00:00:00Z" },
+  "status": "ACTIVE",
+
+  "medications": [
+    {
+      "name": "Amoxicillin",
+      "dosage": "500mg",
+      "form": "capsule",
+      "frequency": "3 times daily",
+      "durationDays": 7,
+      "instructions": "Take with food. Complete the full course even if symptoms improve.",
+      "refillsAllowed": 0
+    },
+    {
+      "name": "Ibuprofen",
+      "dosage": "200mg",
+      "form": "tablet",
+      "frequency": "as needed, max 3 per day",
+      "durationDays": 5,
+      "instructions": "Do not take on an empty stomach.",
+      "refillsAllowed": 1
+    }
+  ],
+
+  "doctorNotes": "Patient reports penicillin tolerance confirmed in 2024. Follow up if fever persists beyond 72 hours.",
+
+  "refills": [
+    {
+      "medication": "Ibuprofen",
+      "requestedAt": { "$date": "2026-06-18T09:12:00Z" },
+      "approvedBy": 4,
+      "status": "APPROVED"
+    }
+  ],
+
+  "pharmacy": {
+    "name": "City Pharmacy #12",
+    "address": "45 Vitosha Blvd, Sofia",
+    "phone": "0888123456"
+  },
+
+  "attachments": [
+    {
+      "fileName": "throat-culture-results.pdf",
+      "mimeType": "application/pdf",
+      "storageUrl": "s3://clinic-files/prescriptions/665f1c2a/throat-culture-results.pdf",
+      "uploadedAt": { "$date": "2026-06-11T14:25:00Z" }
+    }
+  ],
+
+  "tags": ["antibiotic", "respiratory-infection", "short-course"],
+
+  "metadata": {
+    "createdBy": "doctor-portal",
+    "clientVersion": "2.4.1",
+    "sentToPharmacySystem": true,
+    "lastModifiedAt": { "$date": "2026-06-18T09:13:02Z" }
+  }
+}
+```
+
+> Note: the capstone's `Prescription` Java model is a simplified version of this design (single `patientName`, `appointmentId`, `medication`, `dosage`, `doctorNotes`). MongoDB's flexible schema means both shapes can coexist in the same collection during the course — `schemaVersion` distinguishes them.
+
+### Thinking deeper: what would a chat message document look like?
+
+If the system later adds patient–doctor messaging, MongoDB handles it far better than MySQL: messages are high-volume, append-only, and carry varied payloads (text, images, read receipts). A `messages` document would again reference MySQL IDs rather than embed users:
+
+```json
+{
+  "_id": { "$oid": "665f9d11c2e4b7a8f0b67890" },
+  "schemaVersion": 1,
+  "conversationId": "patient17-doctor4",
+  "senderId": 17,
+  "senderRole": "PATIENT",
+  "sentAt": { "$date": "2026-06-12T08:45:00Z" },
+  "body": "Doctor, is it normal to feel drowsy after the second dose?",
+  "attachments": [],
+  "readBy": [
+    { "userId": 4, "readAt": { "$date": "2026-06-12T09:02:00Z" } }
+  ],
+  "tags": ["medication-question"],
+  "metadata": { "clientDevice": "ios", "edited": false }
+}
+```
+
+### Will this design support schema evolution?
+
+Yes, by construction:
+
+- **Additive changes are free.** New optional fields can appear in new documents without touching the millions of existing ones.
+- **`schemaVersion` makes change explicit.** The service layer knows how to read each version and can migrate documents lazily (upgrade-on-write) instead of in one big batch.
+- **References keep MongoDB and MySQL loosely coupled.** Since documents store only IDs plus small display snapshots, changes to MySQL tables (new patient columns, renamed fields) never invalidate existing documents.
+- **Arrays absorb growth.** "A prescription now supports multiple pharmacies" or "refills now need a rejection reason" become new array elements or new keys in embedded documents — no migration required.
