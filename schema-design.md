@@ -340,7 +340,22 @@ MongoDB complements the MySQL schema by storing data that does not fit well into
 }
 ```
 
-> Note: the capstone's `Prescription` Java model is a simplified version of this design (single `patientName`, `appointmentId`, `medication`, `dosage`, `doctorNotes`). MongoDB's flexible schema means both shapes can coexist in the same collection during the course — `schemaVersion` distinguishes them.
+> Note: the capstone's `Prescription` Java model is a simplified, flat version of this design (`patientName`, `appointmentId`, `medication`, `dosage`, `doctorNotes`, plus a flat `refillCount` and `pharmacyName`). The richer design above models refills as a history array (`refills`) and the pharmacy as a nested object (`pharmacy`), whereas the Java model keeps them as single scalar fields. MongoDB's flexible schema means both shapes can coexist in the same collection during the course — `schemaVersion` distinguishes them, and documents missing `refillCount`/`pharmacyName` simply read back as `0`/`null`.
+
+For reference, a document produced by the simplified Java `Prescription` model looks like this:
+
+```json
+{
+  "_id": { "$oid": "665fa07712e4b7a8f0b99001" },
+  "patientName": "Maria Petrova",
+  "appointmentId": 51,
+  "medication": "Amoxicillin",
+  "dosage": "500mg",
+  "doctorNotes": "Take with food. Complete the full 7-day course.",
+  "refillCount": 1,
+  "pharmacyName": "City Pharmacy #12"
+}
+```
 
 ### Thinking deeper: what would a chat message document look like?
 
