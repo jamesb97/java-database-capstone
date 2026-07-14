@@ -1,24 +1,25 @@
+<!-- index.html -->
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Select Role</title>
-    <link rel="icon" href="assets/images/logo/logo.png" />
+    <link rel="icon" href="./assets/images/logo/logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="./assets/css/index.css" />
     <link rel="stylesheet" href="./assets/css/style.css" />
     <script src="./js/util.js" defer></script>
     <script src="./js/render.js" defer></script>
-    <script src="./js/header.js" defer></script>
-    <script src="./js/footer.js" defer></script>
+    <script src="./js/components/header.js" defer></script>
+    <script src="./js/components/footer.js" defer></script>
   </head>
   <body>
-    <main class="main-content">
-      <div class="container">
-        <div class="wrapper">
-          <div id="header"></div>
+    <div class="container">
+      <div class="wrapper">
+        <div id="header"></div>
 
+        <main class="main-content">
           <section id="role-selection" class="role-selection">
             <h2 id="role-heading">Select Your Role</h2>
             <div id="role-buttons" class="role-buttons">
@@ -33,11 +34,11 @@
               </button>
             </div>
           </section>
+        </main>
 
-          <div id="footer"></div>
-        </div>
+        <div id="footer"></div>
       </div>
-    </main>
+    </div>
 
     <div id="modal" class="modal" style="display: none">
       <div class="modal-content">
