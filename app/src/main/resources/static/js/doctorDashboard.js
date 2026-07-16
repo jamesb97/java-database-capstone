@@ -52,3 +52,81 @@
     - Call renderContent() (assumes it sets up the UI layout)
     - Call loadAppointments() to display today's appointments by default
 */
+
+import { getAllAppointments } from "./services/appointmentRecordService.js";
+import { createPatientRow } from "./components/patientRows.js";
+
+const tableBody = document.getElementById("patientTableBody");
+let selectedDate = new Date().toISOString().split("T")[0];
+const token = localStorage.getItem("token");
+let patientName = "null";
+
+const datePicker = document.getElementById("datePicker");
+if (datePicker) {
+  datePicker.value = selectedDate;
+}
+
+document.getElementById("searchBar").addEventListener("input", (event) => {
+  const value = event.target.value.trim();
+  patientName = value.length > 0 ? value : "null";
+  loadAppointments();
+});
+
+document.getElementById("todayButton").addEventListener("click", () => {
+  selectedDate = new Date().toISOString().split("T")[0];
+  document.getElementById("datePicker").value = selectedDate;
+  loadAppointments();
+});
+
+document.getElementById("datePicker").addEventListener("change", (event) => {
+  selectedDate = event.target.value;
+  loadAppointments();
+});
+
+async function loadAppointments() {
+  try {
+    const data = await getAllAppointments(selectedDate, patientName, token);
+    const appointments = data.appointments || [];
+
+    tableBody.innerHTML = "";
+
+    if (!appointments.length) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center;">No Appointments found for today.</td>
+        </tr>`;
+      return;
+    }
+
+    appointments.forEach((appointment) => {
+      const patientEntity = appointment.patient || {};
+      const doctorEntity = appointment.doctor || {};
+
+      const patient = {
+        id: patientEntity.id ?? appointment.patientId,
+        name: patientEntity.name ?? appointment.patientName,
+        phone: patientEntity.phone ?? appointment.patientPhone,
+        email: patientEntity.email ?? appointment.patientEmail,
+      };
+
+      const appointmentId = appointment.id;
+      const doctorId = doctorEntity.id ?? appointment.doctorId;
+
+      const row = createPatientRow(patient, appointmentId, doctorId);
+      tableBody.appendChild(row);
+    });
+  } catch (error) {
+    console.error("Error loading appointments:", error);
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;">Error loading appointments. Try again later.</td>
+      </tr>`;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof renderContent === "function") {
+    renderContent();
+  }
+  loadAppointments();
+});
