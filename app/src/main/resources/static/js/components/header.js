@@ -130,7 +130,8 @@ function renderHeader() {
   }
 
   // Root page: clear session and show logo-only header
-  if (window.location.pathname.endsWith("/")) {
+  const path = window.location.pathname;
+  if (path === "/" || path.endsWith("/") || path.endsWith("/index.html")) {
     localStorage.removeItem("userRole");
     headerDiv.innerHTML = `
       <header class="header">
