@@ -136,8 +136,8 @@ function renderHeader() {
     headerDiv.innerHTML = `
       <header class="header">
         <div class="logo-section">
-          <img src="../assets/images/logo/logo.png" alt="Hospital CRM Logo" class="logo-img">
-          <span class="logo-title">Hospital CMS</span>
+          <img src="../assets/images/logo/logo.png"  href="/" alt="Hospital CRM Logo" class="logo-img">
+          <a href="/" class="logo-title">Hospital CMS</a>
         </div>
       </header>`;
     return;
@@ -147,7 +147,10 @@ function renderHeader() {
   const token = localStorage.getItem("token");
 
   // Session expired / invalid login for roles that require a token
-  if ((role === "loggedPatient" || role === "admin" || role === "doctor") && !token) {
+  if (
+    (role === "loggedPatient" || role === "admin" || role === "doctor") &&
+    !token
+  ) {
     localStorage.removeItem("userRole");
     alert("Session expired or invalid login. Please log in again.");
     window.location.href = "/";
@@ -156,8 +159,8 @@ function renderHeader() {
 
   let headerContent = `<header class="header">
     <div class="logo-section">
-      <img src="../assets/images/logo/logo.png" alt="Hospital CRM Logo" class="logo-img">
-      <span class="logo-title">Hospital CMS</span>
+      <img src="../assets/images/logo/logo.png"  href="/" alt="Hospital CRM Logo" class="logo-img">
+      <a href="/" class="logo-title">Hospital CMS</a>
     </div>
     <nav>`;
 
@@ -196,7 +199,9 @@ function attachHeaderButtonListeners() {
 
   const patientSignupBtn = document.getElementById("patientSignup");
   if (patientSignupBtn) {
-    patientSignupBtn.addEventListener("click", () => openModal("patientSignup"));
+    patientSignupBtn.addEventListener("click", () =>
+      openModal("patientSignup"),
+    );
   }
 }
 
