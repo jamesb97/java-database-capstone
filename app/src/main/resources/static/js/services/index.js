@@ -15,6 +15,12 @@ window.onload = function () {
   if (doctorBtn) {
     doctorBtn.addEventListener('click', () => openModal('doctorLogin'));
   }
+
+  // Patients can browse doctors without logging in; login/signup live on the dashboard header.
+  const patientBtn = document.getElementById('patient');
+  if (patientBtn) {
+    patientBtn.addEventListener('click', () => selectRole('patient'));
+  }
 };
 
 window.adminLoginHandler = async function () {
